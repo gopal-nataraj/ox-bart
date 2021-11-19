@@ -262,6 +262,69 @@ long BartIO::ScanArchiveToBart(const long dims[PFILE_DIMS], _Complex float* out,
 	return num_views;
 }
 
+long BartIO::NoncartScanArchiveToBart(const long dims[PFILE_DIMS], _Complex float* out, const ScanArchivePointer scanArchive)
+{
+	// Create a trace object to log messages
+	Trace trace("NoncartScanArchiveToBart");
+
+	// Set the GERecon::Path locations prior to loading the saved files
+	const boost::filesystem::path scanArchiveFullPath = scanArchive->Path();
+	Path::SetAllInputPaths(scanArchiveFullPath.parent_path() / "ScanArchiveFiles");
+	scanArchive->LoadSavedFiles();
+
+	// Load the archive storage which contains all acquisition data held in the archive
+	Acquisition::ArchiveStoragePointer archiveStorage = Acquisition::ArchiveStorage::Create(scanArchive);
+
+	// Determine how many control (DAB) packets are contained in the storage
+	const size_t numControls = archiveStorage->AvailableControlCount();
+	std::cout << "numControls: " << numControls << std::endl;
+
+	int frameType = 0;
+	int viewValue = 0;
+
+	long pos[PFILE_DIMS];
+	md_set_dims(PFILE_DIMS, pos, 0);
+
+	long frameDim[PFILE_DIMS];
+	md_singleton_dims(PFILE_DIMS, frameDim);
+	frameDim[0] = dims[0]; // readout
+	frameDim[4] = dims[4]; // coil
+
+	// Loop over all control packets in the archive. Some control packets are scan control packets
+  // which may indicate the end of an acquisition (pass) or the end of the scan. Other control
+	// packets are frame control packets which describe the raw frame (or view) data they're 
+	// associated with. All control packets and associated frame data are stored in the archive
+	// in the order they're acquired.
+	unsigned int numImageFrames = 0;
+	for (size_t controlIndex=0; controlIndex<numControls; ++controlIndex)
+	{
+		const Acquisition::FrameControlPointer controlPacketAndFrameData = archiveStorage->NextFrameControl();
+		
+		if (controlPacketAndFrameData->Control().Opcode() == Acquisition::ProgrammableOpcode)
+		{
+			const Acquisition::ProgrammableControlPacket framePacket 
+				= controlPacketAndFrameData->Control().Packet().As<Acquisition::ProgrammableControlPacket>();
+
+			// Only include ImageFrames
+			viewValue = Acquisition::GetPacketValue(framePacket.viewNumH, framePacket.viewNumL);
+			frameType = viewValue==0 ? Acquisition::BaselineFrame : Acquisition::ImageFrame;
+
+			if (frameType == Acquisition::ImageFrame)
+			{
+				// Compute the next position
+				md_next(PFILE_DIMS, dims, ~(READ_FLAG | COIL_FLAG), pos);
+
+				// Copy next frame's data into md_array
+				const ComplexFloatCube frameRawData = controlPacketAndFrameData->Data();
+				ComplexFloatMatrix oneReadout = frameRawData(Range::all(), Range::all(), 0);
+				md_copy_block(PFILE_DIMS, pos, dims, out, frameDim, oneReadout.data(), CFL_SIZE);
+				numImageFrames++;
+			}
+		}
+	}
+	return numImageFrames;
+}
+
 /**
  * Extract Pfile data and copy to BART array
  * Assumes nothing about conventions of dimensions.

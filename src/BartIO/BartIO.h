@@ -74,11 +74,19 @@ namespace GERecon
 		 */
 		bool get_zip_dir(const long dims[PFILE_DIMS], const Legacy::PfilePointer& pfile);
 
+
 		/**
 		 * Extract ScanArchive data and copy to BART array
 		 * Assumes nothing about conventions of dimensions.
 		 */
 		long ScanArchiveToBart(const long dims[PFILE_DIMS], _Complex float* out, const ScanArchivePointer scanArchive, bool store_sequential);
+		
+
+		/**
+		 * Extract non-cartesian ScanArchive data and copy to BART array.
+		 */
+		long NoncartScanArchiveToBart(const long dims[PFILE_DIMS], _Complex float* out, const ScanArchivePointer scanArchive);
+
 
 		/**
 		 * Extract Pfile data and copy to BART array
