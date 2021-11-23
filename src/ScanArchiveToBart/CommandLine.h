@@ -41,7 +41,7 @@ namespace GERecon
          * or does not exist, the function will throw an exception.
          *
          * Usage:
-         *   --pfile </path/to/pfile>
+         *   --file </path/to/file>
          */
         static boost::filesystem::path ScanArchivePath();
 
@@ -51,6 +51,7 @@ namespace GERecon
          * Usage:
          *   --output <file>
          */
+        static boost::optional<std::string> Output();
 
         /**
          * sequential  storage
@@ -58,9 +59,7 @@ namespace GERecon
          * Usage:
          *   --sequential 1
          */
-	static boost::optional<unsigned int> SequentialStorage();
-
-        static boost::optional<std::string> Output();
+	    static boost::optional<unsigned int> SequentialStorage();
 
         /**
          * Output Channel weights in BART format
@@ -95,7 +94,6 @@ namespace GERecon
 	static boost::optional<long> FFTMod();
 
     private:
-
         /**
          * Constructor - do not allow.
          */

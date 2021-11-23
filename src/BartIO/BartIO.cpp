@@ -3,8 +3,9 @@
  * GE Proprietary and Confidential Information. Only to be distributed with
  * permission from GE. Resulting outputs are not for diagnostic purposes.
  *
- * 2015 Martin Uecker <martin.uecker@med.uni-goettingen.de>
- * 2016-2017 Jon Tamir <jtamir@eecs.berkeley.edu>
+ * 2015 		 	Martin Uecker 	<martin.uecker@med.uni-goettingen.de>
+ * 2016-2017 	Jon Tamir 			<jtamir@eecs.berkeley.edu>
+ * 2021 			Gopal Nataraj 	<gnataraj@berkeley.edu>
  */
 
 // includes for orchestra
@@ -279,8 +280,8 @@ long BartIO::NoncartScanArchiveToBart(const long dims[PFILE_DIMS], _Complex floa
 	const size_t numControls = archiveStorage->AvailableControlCount();
 	std::cout << "numControls: " << numControls << std::endl;
 
+	int packetValue = 0;
 	int frameType = 0;
-	int viewValue = 0;
 
 	long pos[PFILE_DIMS];
 	md_set_dims(PFILE_DIMS, pos, 0);
@@ -292,23 +293,25 @@ long BartIO::NoncartScanArchiveToBart(const long dims[PFILE_DIMS], _Complex floa
 
 	// Loop over all control packets in the archive. Some control packets are scan control packets
   // which may indicate the end of an acquisition (pass) or the end of the scan. Other control
-	// packets are frame control packets which describe the raw frame (or view) data they're 
+	// packets are frame control packets which describe the raw frame (or view) data they're
 	// associated with. All control packets and associated frame data are stored in the archive
 	// in the order they're acquired.
 	unsigned int numImageFrames = 0;
 	for (size_t controlIndex=0; controlIndex<numControls; ++controlIndex)
 	{
 		const Acquisition::FrameControlPointer controlPacketAndFrameData = archiveStorage->NextFrameControl();
-		
+
 		if (controlPacketAndFrameData->Control().Opcode() == Acquisition::ProgrammableOpcode)
 		{
-			const Acquisition::ProgrammableControlPacket framePacket 
+			const Acquisition::ProgrammableControlPacket framePacket
 				= controlPacketAndFrameData->Control().Packet().As<Acquisition::ProgrammableControlPacket>();
 
-			// Only include ImageFrames
-			viewValue = Acquisition::GetPacketValue(framePacket.viewNumH, framePacket.viewNumL);
-			frameType = viewValue==0 ? Acquisition::BaselineFrame : Acquisition::ImageFrame;
+			// Baseline frames apparently have packet value equal to 1 
+			// This differs from GE documentation (which says baseline frames have packet value 0)
+			packetValue = Acquisition::GetPacketValue(framePacket.viewNumH, framePacket.viewNumL);
+			frameType = packetValue==1 ? Acquisition::BaselineFrame : Acquisition::ImageFrame;
 
+			// Only include ImageFrames
 			if (frameType == Acquisition::ImageFrame)
 			{
 				// Compute the next position

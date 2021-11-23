@@ -3,7 +3,8 @@
  * GE Proprietary and Confidential Information. Only to be distributed with
  * permission from GE. Resulting outputs are not for diagnostic purposes.
  *
- * 2016-2017 Jon Tamir <jtamir@eecs.berkeley.edu>
+ * 2016-2017 	Jon Tamir 			<jtamir@eecs.berkeley.edu>
+ * 2021 			Gopal Nataraj 	<gnataraj@berkeley.edu>
  */
 
 // orchestra includes
@@ -46,15 +47,12 @@
 #include "CommandLine.h"
 #include "Driver.h"
 
-
-
 // Include this to avoid having to type fully qualified names
 using namespace GERecon;
 using namespace MDArray;
 
-
 /**
- * Write Pfile data to BART-formatted file
+ * Write data to BART-formatted file
  */
 void GERecon::BartWrite()
 {
@@ -65,7 +63,7 @@ void GERecon::BartWrite()
 	const long fftmod_flags = *CommandLine::FFTMod();
 	const unsigned int store_sequential = *CommandLine::SequentialStorage();
 
-	// Read Pfile from command line
+	// Read file from command line
 	const boost::filesystem::path filePath = CommandLine::ScanArchivePath();
 	const ScanArchivePointer scanArchive = ScanArchive::Create(filePath, GESystem::Archive::LoadMode);
 
@@ -100,17 +98,14 @@ void GERecon::BartWrite()
 	long dims[PFILE_DIMS];
 	md_singleton_dims(PFILE_DIMS, dims);
 
-	//bool store_sequential = true; // FIXME: test sequential writing
-
 	if (store_sequential) {
 
-		std::cout << "Sequential mode. Storing data sequentially in the output" << std::endl;
+		std::cout << "Sequential mode: writing data to file in acquisition order" << std::endl;
 		dims[0] = acqXRes;
 		dims[1] = acqYRes * acqZRes * numEchoes * numPhases;
 		dims[4] = numChannels;
 	}
 	else {
-
 		// FIXME: differentiate between passes and phases
 		dims[0] = acqXRes;
 		dims[1] = acqYRes;
@@ -126,7 +121,16 @@ void GERecon::BartWrite()
 	_Complex float* ksp2 = (_Complex float*)md_alloc(PFILE_DIMS, dims, CFL_SIZE);
 	_Complex float* ksp3 = NULL;
 
-	long num_views = BartIO::ScanArchiveToBart(dims, ksp2, scanArchive, store_sequential);
+	long num_views = 0;
+	if (store_sequential) {
+
+		num_views = BartIO::NoncartScanArchiveToBart(dims, ksp2, scanArchive);
+	}
+	else {
+
+		num_views = BartIO::ScanArchiveToBart(dims, ksp2, scanArchive, store_sequential);
+	}
+	
 
 	if (store_sequential && num_views < dims[1]) {
 
@@ -159,7 +163,6 @@ void GERecon::BartWrite()
 		fftuc(PFILE_DIMS, dims, fft_flags, ksp2, ksp2);
 	}
 
-
 	long odims[DIMS];
 	BartIO::FormatBartMRIDims(odims, dims);
 
@@ -181,7 +184,6 @@ void GERecon::BartWrite()
 
 		unmap_cfl(DIMS, cdims, weights);
 	}
-
 
 	unmap_cfl(DIMS, odims, ksp);
 }
