@@ -1,6 +1,7 @@
 *.swp
 *.swo
 .DS_Store
+.vscode/
 build
 sdk
 tags
